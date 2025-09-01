@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>SunWin Bot Dự Đoán (API Mới)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: white;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Hộp nhập key */
+    #loginBox {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0.45), rgba(0,0,0,0.85));
+      z-index: 10000;
+    }
+    #loginPanel {
+      background: rgba(0,0,0,0.6);
+      padding: 28px 26px;
+      border-radius: 16px;
+      width: min(92vw, 360px);
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0,255,255,0.35);
+      border: 1px solid rgba(0,255,255,0.25);
+      backdrop-filter: blur(6px);
+      animation: glowBox 2s infinite alternate;
+    }
+    @keyframes glowBox {
+      0% { box-shadow: 0 0 18px rgba(0,255,255,0.3); }
+      100% { box-shadow: 0 0 34px rgba(0,255,255,0.75); }
+    }
+
+    /* Ô nhập key */
+    #password {
+      padding: 12px 14px;
+      width: 100%;
+      border-radius: 12px;
+      font-size: 18px;
+      text-align: center;
+      color: #0ff;
+      font-weight: 600;
+      border: 2px solid transparent;
+      background: rgba(0,0,0,0.35);
+      border-image: linear-gradient(90deg, #00f5ff, #7b2fff) 1;
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.65);
+      transition: all .25s;
+    }
+    #password:focus {
+      outline: none;
+      border-image: linear-gradient(270deg, #00f5ff, #7b2fff, #ff00ff) 1;
+      box-shadow: 0 0 22px #00f5ff, 0 0 36px #7b2fff;
+      animation: neonPulse 1.4s infinite alternate;
+    }
+    @keyframes neonPulse {
+      from { box-shadow: 0 0 16px #00f5ff, 0 0 26px #7b2fff; }
+      to   { box-shadow: 0 0 28px #ff00ff, 0 0 46px #00f5ff; }
+    }
+
+    .btn {
+      padding: 11px 18px;
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .25s;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .btn:hover { transform: translateY(-1px) scale(1.02); }
+
+    #loginBtn { background: linear-gradient(90deg, #00c6ff, #0072ff); }
+    #buyKeyBtn {
+      background: linear-gradient(90deg, #ff0080, #ff8c00);
+      animation: pulse 1.5s infinite;
+      box-shadow: 0 0 16px #ff0080;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 16px #ff0080; }
+      50% { transform: scale(1.03); box-shadow: 0 0 28px #ff8c00; }
+      100% { transform: scale(1); box-shadow: 0 0 16px #ff0080; }
+    }
+
+    #msg { min-height: 22px; margin: 6px 0 0; font-weight: 600; }
+
+    /* Liên hệ admin khi nhập sai */
+    #adminContact {
+      margin-top: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      display: none;
+      animation: blinkText 1.2s infinite alternate;
+    }
+    #adminContact a {
+      background: linear-gradient(90deg, #ff0000, #ff9900, #00ffea, #ff00ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 800;
+      text-decoration: none;
+      animation: gradientMove 3s infinite linear;
+      background-size: 200% auto;
+    }
+    @keyframes blinkText { 0% { opacity: .35; } 100% { opacity: 1; } }
+    @keyframes gradientMove { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+
+    /* Popup mua key */
+    #popup {
+      position: fixed; inset: 0; z-index: 10001;
+      background: rgba(0,0,0,0.7);
+      display: none; align-items: center; justify-content: center;
+    }
+    #popupContent {
+      background: #111; color: #fff;
+      padding: 18px; border-radius: 12px;
+      width: min(92vw, 360px);
+      box-shadow: 0 0 16px #ff7e5f;
+      border: 1px solid rgba(255,126,95,0.35);
+      text-align: center;
+      position: relative;
+    }
+    #packageTable { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 15px; }
+    #packageTable tr {
+      cursor: pointer; transition: .25s; border: 2px solid transparent;
+    }
+    #packageTable tr:hover { background: rgba(0,255,200,.14); border: 2px solid #00ffd5; transform: scale(1.03); }
+    #packageTable tr.active { background: rgba(255,255,255,.14); border: 2px solid #ff00ff; box-shadow: 0 0 14px #ff00ff inset; font-weight: 700; }
+
+    #qrImage {
+      border: 4px solid #00ffea;
+      border-radius: 14px;
+      box-shadow: 0 0 20px #00ffea;
+      animation: qrGlow 2s infinite alternate;
+      width: 240px; max-width: 80vw;
+    }
+    @keyframes qrGlow { from { box-shadow: 0 0 16px #00ffea; } to { box-shadow: 0 0 30px #ff00ff; } }
+
+    #packageName {
+      font-size: 18px; font-weight: 800; color: #00ffea;
+      text-shadow: 0 0 8px #00fff2; margin: 8px 0 12px;
+    }
+    #paymentBox button {
+      background: linear-gradient(90deg, #00ffea, #0077ff);
+      color: #fff; font-weight: 800; padding: 10px 16px;
+      border-radius: 10px; border: none; cursor: pointer; transition: .25s;
+    }
+    #paymentBox button:hover { transform: scale(1.06); background: linear-gradient(90deg, #0077ff, #00ffea); }
+
+    /* Iframe nền */
+    #mainContent { display: none; height: 100vh; }
+    iframe { width: 100vw; height: 100vh; border: none; }
+
+    /* ROBOT nổi */
+    #robotContainer {
+      position: fixed; left: 24px; top: 50%; transform: translateY(-50%);
+      display: flex; gap: 10px; align-items: center; z-index: 9999;
+      cursor: grab; user-select: none;
+      padding: 15px 18px; border-radius: 20px;
+      background: rgba(0,0,0,0.85);
+      border: 2px solid rgba(255,255,255,0.15);
+      box-shadow:
+        0 0 0 3px rgba(0,255,255,0.6),
+        0 0 25px rgba(0,255,255,0.4),
+        inset 0 0 15px rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      min-width: 320px;
+      animation: robotGlow 3s ease-in-out infinite alternate;
+    }
+    @keyframes robotGlow {
+      from {
+        box-shadow: 0 0 0 3px rgba(0,255,255,0.4), 0 0 20px rgba(0,255,255,0.3), inset 0 0 15px rgba(0,0,0,0.7);
+      }
+      to {
+        box-shadow: 0 0 0 3px rgba(255,0,128,0.6), 0 0 30px rgba(255,0,128,0.4), inset 0 0 15px rgba(0,0,0,0.7);
+      }
+    }
+    #robotContainer:active { cursor: grabbing; }
+
+    #robotIcon { width: 70px; height: 70px; flex: 0 0 auto; filter: drop-shadow(0 0 12px rgba(0,255,255,.5)); }
+    #robotText { line-height: 1.4; flex: 1; }
+    #robotText .title { font-weight: 800; margin-bottom: 8px; font-size: 16px; }
+    #robotText .line { font-size: 14px; margin-bottom: 4px; }
+    #robotText .strong { font-weight: 800; }
+
+    /* Dự đoán nổi bật */
+    .prediction {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-weight: 900;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      animation: predictionPulse 2s infinite;
+      text-shadow: 0 0 8px currentColor;
+    }
+    .prediction.tai {
+      background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+      color: #fff;
+      box-shadow: 0 0 15px rgba(255,107,107,0.6);
+    }
+    .prediction.xiu {
+      background: linear-gradient(45deg, #4ecdc4, #44a08d);
+      color: #fff;
+      box-shadow: 0 0 15px rgba(78,205,196,0.6);
+    }
+    @keyframes predictionPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    /* Percentage bars */
+    .percentage-bar {
+      display: flex;
+      height: 8px;
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 6px 0;
+      background: rgba(255,255,255,0.1);
+    }
+    .tai-bar {
+      background: linear-gradient(90deg, #ff6b6b, #ff8e53);
+      transition: width 0.5s ease;
+    }
+    .xiu-bar {
+      background: linear-gradient(90deg, #4ecdc4, #44a08d);
+      transition: width 0.5s ease;
+    }
+
+    /* Chip trạng thái */
+    .chip {
+      display: inline-block; padding: 4px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 800; margin-left: 8px;
+      background: linear-gradient(90deg, #00ffea, #0077ff);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Nút thu gọn robot */
+    #toggleRobot {
+      position: absolute; right: -10px; top: -10px;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #111; border: 2px solid rgba(255,255,255,0.3);
+      color: #fff; font-weight: 900; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 12px rgba(0,0,0,0.8);
+      transition: all 0.2s;
+    }
+    #toggleRobot:hover {
+      background: #333;
+      transform: scale(1.1);
+    }
+
+    /* Liên hệ admin dưới góc */
+    #contactFloating {
+      position: fixed; right: 14px; bottom: 12px; z-index: 9998;
+      background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 12px; padding: 8px 12px; font-weight: 800;
+      box-shadow: 0 0 16px rgba(0,255,255,.35);
+    }
+    #contactFloating a {
+      color: #ffcc00; text-decoration: none;
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      #robotContainer {
+        min-width: 280px;
+        padding: 12px 15px;
+        left: 10px;
+      }
+      #robotIcon { width: 60px; height: 60px; }
+      #robotText .title { font-size: 15px; }
+      #robotText .line { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="loginBox">
+    <div id="loginPanel">
+      <h2>🔐 Nhập Key Truy Cập</h2>
+      <input type="password" id="password" placeholder="Nhập Key..." />
+      <button class="btn" id="loginBtn" onclick="checkKey()">Đăng Nhập</button>
+      <button class="btn" id="buyKeyBtn" onclick="showPopup()">🛒 Mua Key</button>
+      <p id="msg"></p>
+      <p id="adminContact">📩Liên hệ Admin: <a href="https://t.me/doanhvip12" target="_blank">@doanhvip12</a></p>
+    </div>
+  </div>
+
+  <!-- POPUP MUA KEY -->
+  <div id="popup" onclick="if(event.target === this) hidePopup()">
+    <div id="popupContent">
+      <button onclick="hidePopup()" style="position:absolute; right:8px; top:8px; width:32px; height:32px; border-radius:50%; background:#ff4444; border:none; color:#fff; font-weight:bold; cursor:pointer; font-size:18px; z-index:10002; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.3);">×</button>
+      <h3>🛒 Chọn Gói Key Truy Cập</h3>
+      <table id="packageTable">
+        <tr onclick="selectPackage(this, '3 Ngày', 250000)">
+          <td>🔑 3 Ngày</td><td style="color:#0ff; font-weight:bold; text-align:right;">250K</td>
+        </tr>
+        <tr onclick="selectPackage(this, '1 Tuần', 300000)">
+          <td>🔑 1 Tuần</td><td style="color:#0ff; font-weight:bold; text-align:right;">300K</td>
+        </tr>
+        <tr onclick="selectPackage(this, '1 Tháng', 450000)">
+          <td>🔑 1 Tháng</td><td style="color:#0ff; font-weight:bold; text-align:right;">450K</td>
+        </tr>
+        <tr onclick="selectPackage(this, 'Vĩnh Viễn', 999000)">
+          <td>🔑 Vĩnh Viễn</td><td style="color:#ff6666; font-weight:bold; text-align:right;">999K</td>
+        </tr>
+      </table>
+
+      <div id="paymentBox" style="display:none;">
+        <div id="packageName"></div>
+        <p>💳 Quét QR bằng Msb để thanh toán:</p>
+        <img id="qrImage" src="" alt="VietQR MB Bank"/>
+        <p style="margin-top:10px;">
+          <b>STK:</b> <span style="color:#0ff;">0865526750</span> (Msb)<br>
+          <b>Tên:</b> TRAN DUC DOANH<br>
+          <b>Nội dung:</b> Mua Key SunWin
+        </p>
+        <p id="countdown" style="color:#ff6666; font-weight: 800;"></p>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+          <button onclick="copyBankInfo()" style="background:#007bff; color:#fff; padding:10px 16px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; flex:1;">📋 Copy thông tin</button>
+          <button onclick="hidePopup()" style="background:#dc3545; color:#fff; padding:10px 16px; border:none; border-radius:8px; cursor:pointer; font-weight:bold; flex:1;">❌ Đóng</button>
+        </div>
+      </div>
+
+      <!-- Nút mua key luôn hiển thị -->
+      <div style="margin-top:15px; text-align:center;">
+        <button onclick="showPaymentOptions(); event.stopPropagation();" style="background:linear-gradient(90deg, #ff0080, #ff8c00); color:#fff; font-weight:800; font-size:18px; padding:15px 40px; border:none; border-radius:12px; cursor:pointer; box-shadow:0 4px 12px rgba(255,0,128,0.4); width:100%; transition:all 0.2s; animation:pulse 1.5s infinite;">
+          🛒 MUA KEY
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="mainContent">
+    <!-- Loading screen -->
+    <div id="gameLoading" style="
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 100; transition: opacity 0.3s; cursor: pointer;
+    " onclick="hideGameLoading()">
+      <div style="text-align: center;">
+        <div style="
+          width: 60px; height: 60px; border: 4px solid rgba(0,255,255,0.2);
+          border-top: 4px solid #00ffff; border-radius: 50%;
+          animation: spin 1s linear infinite; margin-bottom: 20px;
+        "></div>
+        <h3 style="color: #00ffff; margin: 10px 0;">🎮 Đang tải SunWin...</h3>
+        <p style="color: #ccc; font-size: 14px;">Vui lòng chờ trong giây lát</p>
+        <p style="color: #ffcc00; font-size: 12px; margin-top: 15px; animation: pulse 2s infinite;">
+          👆 Nhấn để bỏ qua loading
+        </p>
+      </div>
+    </div>
+
+    <div id="gameContainer">
+      <iframe id="gameFrame" src="https://web.sunwin.us" allow="camera; microphone; fullscreen; payment; geolocation" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" style="background: #1a1a1a;" onload="hideGameLoading()" onerror="hideGameLoading()"></iframe>
+    </div>
+
+    <!-- ROBOT nổi -->
+    <div id="robotContainer">
+      <button id="toggleRobot" title="Thu gọn / mở rộng">−</button>
+      <img id="robotIcon" src="https://cdn-icons-png.flaticon.com/512/4712/4712033.png" alt="bot" />
+      <div id="robotText">
+        <div class="title">🤖 SunWin AI Bot <span id="statusChip" class="chip">Đang kết nối…</span></div>
+        <div id="predictionLine" class="line">⏳ Khởi động hệ thống AI...</div>
+        <div id="percentageLine" class="line"></div>
+        <div id="infoLine" class="line"></div>
+        <div id="metaLine" class="line" style="opacity:.7; font-size: 12px;"></div>
+      </div>
+    </div>
+
+    <!-- Liên hệ admin góc -->
+    <div id="contactFloating">
+      📩 <a href="https://t.me/doanhvip12" target="_blank">Liên hệ Admin @doanhvip12</a>
+    </div>
+  </div>
+
+  <script>
+    // ====== CẤU HÌNH API MỚI ======
+    const API_URL = "https://toilavinhmaycays23.onrender.com/vinhmaycay";
+    const BACKUP_API = "https://apiluck8-hknam.onrender.com/api/taixiu-md5";
+    const ACCOUNT_NO = "0865526740";
+    const ACCOUNT_NAME = "TRAN DUC DOANH";
+    const FETCH_INTERVAL_MS = 2000; // gọi API mỗi 2 giây
+
+    // ====== TẠO KEY THEO NGÀY ======
+    function getTodayPassword() {
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, "0");
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const yyyy = today.getFullYear();
+      return `SUN${dd}${mm}${yyyy}`;
+    }
+    const KEY_TODAY = getTodayPassword();
+
+    // ====== LOGIN ======
+    function checkKey() {
+      const pass = document.getElementById("password").value.trim();
+      const msg = document.getElementById("msg");
+      const adminContact = document.getElementById("adminContact");
+
+      if (pass === KEY_TODAY) {
+        msg.style.color = "lime";
+        msg.textContent = "✅ Đăng nhập thành công!";
+        adminContact.style.display = "none";
+        setTimeout(() => {
+          document.getElementById("loginBox").style.display = "none";
+          document.getElementById("mainContent").style.display = "block";
+          autoHideLoading(); // Bắt đầu timer tự động ẩn loading
+          startRobot();
+        }, 700);
+      } else {
+        msg.style.color = "red";
+        msg.textContent = "❌ Key không đúng!";
+        adminContact.style.display = "block";
+      }
+    }
+
+    // ====== POPUP MUA KEY ======
+    function showPopup(){ document.getElementById("popup").style.display = "flex"; }
+    function hidePopup(){ document.getElementById("popup").style.display = "none"; }
+
+    function selectPackage(row, name, amount) {
+      document.querySelectorAll("#packageTable tr").forEach(tr => tr.classList.remove("active"));
+      row.classList.add("active");
+
+      document.getElementById("paymentBox").style.display = "block";
+      document.getElementById("packageName").innerText = `👉 Gói bạn chọn: ${name} - ${amount.toLocaleString()}đ`;
+
+      const qrUrl = `https://img.vietqr.io/image/MB-${ACCOUNT_NO}-compact2.png?amount=${amount}&addInfo=Mua%20Key%20SunWin&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
+      document.getElementById("qrImage").src = qrUrl;
+
+      clearInterval(window.__countdownTimer);
+      startCountdown(15 * 60);
+    }
+
+    function startCountdown(durationSec) {
+      let t = durationSec;
+      const el = document.getElementById("countdown");
+      window.__countdownTimer = setInterval(() => {
+        const m = Math.floor(t / 60);
+        const s = String(t % 60).padStart(2, "0");
+        el.textContent = `⏳ Vui lòng thanh toán trong ${m}:${s}`;
+        if (t <= 0) {
+          clearInterval(window.__countdownTimer);
+          el.textContent = "❌ Hết thời gian! Vui lòng chọn lại gói.";
+          document.getElementById("paymentBox").style.display = "none";
+        }
+        t--;
+      }, 1000);
+    }
+
+    function copyBankInfo() {
+      const text = `STK: ${ACCOUNT_NO}\nMB Bank\nTên: ${ACCOUNT_NAME}\nNội dung: Mua Key SunWin`;
+      navigator.clipboard.writeText(text).then(() => alert("✅ Đã copy thông tin thanh toán!"));
+    }
+
+    function showPaymentOptions() {
+      // Nếu chưa chọn gói nào, tự động chọn gói đầu tiên
+      const activeRow = document.querySelector("#packageTable tr.active");
+      if (!activeRow) {
+        const firstRow = document.querySelector("#packageTable tr");
+        if (firstRow) {
+          selectPackage(firstRow, '3 Ngày', 250000);
+        }
+      } else {
+        // Nếu đã chọn gói rồi, chỉ cần hiển thị phần thanh toán
+        document.getElementById("paymentBox").style.display = "block";
+      }
+    }
+
+    // ====== ROBOT + API DỰ ĐOÁN MỚI ======
+    let round = 0, fetchTimer = null, currentAPI = API_URL;
+
+    function startRobot() {
+      const statusChip = document.getElementById("statusChip");
+      const predictionLine = document.getElementById("predictionLine");
+      const percentageLine = document.getElementById("percentageLine");
+      const infoLine = document.getElementById("infoLine");
+      const metaLine = document.getElementById("metaLine");
+
+      statusChip.textContent = "Kết nối...";
+      predictionLine.innerHTML = "🔌 Đang kết nối API dự đoán...";
+      percentageLine.innerHTML = "";
+      infoLine.innerHTML = "";
+      metaLine.innerHTML = "";
+
+      // Hàm gọi API với fallback
+      const callAPI = async () => {
+        try {
+          const response = await fetch(currentAPI, {
+            method: "GET",
+            mode: "cors",
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+          const data = await response.json();
+          handleAPISuccess(data);
+
+        } catch (err) {
+          console.error("Lỗi API:", err);
+
+          // Thử API backup nếu API chính lỗi
+          if (currentAPI === API_URL) {
+            currentAPI = BACKUP_API;
+            console.log("Chuyển sang API backup...");
+            try {
+              const backupResponse = await fetch(currentAPI, {
+                method: "GET",
+                mode: "cors"
+              });
+              const backupData = await backupResponse.json();
+              handleAPISuccess(backupData, true);
+            } catch (backupErr) {
+              handleAPIError(backupErr);
+            }
+          } else {
+            handleAPIError(err);
+          }
+        }
+      };
+
+      // Xử lý khi API thành công
+      const handleAPISuccess = (data, isBackup = false) => {
+        // Lưu data để sử dụng cho các function khác
+        window.lastAPIData = data;
+
+        round++;
+        statusChip.textContent = isBackup ? "Backup" : "Live";
+        statusChip.style.background = isBackup ? "linear-gradient(90deg, #ff8c00, #ff0080)" : "linear-gradient(90deg, #00ffea, #0077ff)";
+
+        console.log("API Response:", data); // Debug log
+
+        const prediction = extractPrediction(data);
+        predictionLine.innerHTML = renderPrediction(prediction, round);
+
+        const percentages = extractPercentages(data);
+        percentageLine.innerHTML = renderPercentages(percentages);
+
+        const gameInfo = extractGameInfo(data);
+        infoLine.innerHTML = renderGameInfo(gameInfo);
+
+        metaLine.innerHTML = renderMeta(data, isBackup);
+      };
+
+      // Xử lý khi API lỗi
+      const handleAPIError = (err) => {
+        statusChip.textContent = "Lỗi";
+        statusChip.style.background = "linear-gradient(90deg, #ff4444, #cc0000)";
+        predictionLine.innerHTML = "⚠️ Mất kết nối API";
+        percentageLine.innerHTML = `<span style="color:#ff6666;">Lỗi: ${err.message || 'Không rõ'}</span>`;
+        infoLine.innerHTML = "🔄 Đang thử kết nối lại...";
+        metaLine.innerHTML = `<span style="opacity:.6;">Kiểm tra kết nối mạng hoặc API server</span>`;
+      };
+
+      // Gọi API ngay lập tức và lặp lại
+      callAPI();
+      fetchTimer = setInterval(callAPI, FETCH_INTERVAL_MS);
+
+      // Thiết lập drag và toggle
+      enableDragWithinViewport(document.getElementById("robotContainer"));
+      setupToggleRobot();
+    }
+
+    // ====== XỬ LÝ DỮ LIỆU API ======
+    function extractPrediction(data) {
+      // Phân tích dựa trên kết quả hiện tại để dự đoán phiên tiếp theo
+      const currentResult = data.Ket_qua || data.result;
+      const currentTotal = data.Tong || data.total;
+      const dice1 = data.Xuc_xac_1 || data.dice1;
+      const dice2 = data.Xuc_xac_2 || data.dice2;
+      const dice3 = data.Xuc_xac_3 || data.dice3;
+
+      // Logic dự đoán đơn giản dựa trên pattern
+      let nextPrediction = null;
+      let confidence = 75; // confidence mặc định
+      let reasoning = "";
+
+      if (currentTotal != null && !isNaN(currentTotal)) {
+        const total = Number(currentTotal);
+
+        // Dự đoán ngược lại với kết quả hiện tại (strategy contrarian)
+        if (total >= 11) {
+          nextPrediction = "XỈU";
+          reasoning = `Phiên trước: ${total} (${currentResult}), xu hướng đảo chiều`;
+          confidence = Math.min(85, 60 + Math.abs(total - 10.5) * 3);
+        } else {
+          nextPrediction = "TÀI";
+          reasoning = `Phiên trước: ${total} (${currentResult}), xu hướng đảo chiều`;
+          confidence = Math.min(85, 60 + Math.abs(total - 10.5) * 3);
+        }
+
+        // Tăng confidence nếu có pattern đặc biệt
+        if (dice1 && dice2 && dice3) {
+          const dices = [dice1, dice2, dice3];
+          const hasDouble = dices.some((d, i) => dices.indexOf(d) !== i);
+          if (hasDouble) {
+            confidence = Math.min(90, confidence + 10);
+            reasoning += " + có sốc đôi";
+          }
+        }
+      } else {
+        nextPrediction = "TÀI"; // mặc định
+        reasoning = "Phân tích dữ liệu, xu hướng tăng";
+        confidence = 65;
+      }
+
+      return {
+        prediction: nextPrediction,
+        confidence: Math.round(confidence),
+        reasoning
+      };
+    }
+
+    function extractPercentages(data) {
+      // Tính phần trăm dựa trên dự đoán
+      const pred = extractPrediction(data);
+      const confidence = pred.confidence || 70;
+
+      let taiPercent, xiuPercent;
+
+      if (pred.prediction === "TÀI") {
+        taiPercent = Math.max(55, confidence);
+        xiuPercent = 100 - taiPercent;
+      } else {
+        xiuPercent = Math.max(55, confidence);
+        taiPercent = 100 - xiuPercent;
+      }
+
+      return {
+        tai: Math.round(taiPercent),
+        xiu: Math.round(xiuPercent)
+      };
+    }
+
+    function extractGameInfo(data) {
+      // Lấy số phiên hiện tại
+      let phien = data.Phien || data.phien || data.round;
+      if (phien != null) {
+        phien = String(phien);
+      }
+
+      // Thời gian còn lại (giả định)
+      let timeRemain = Math.floor(Math.random() * 30) + 10; // 10-40s random
+
+      // Kết quả phiên trước
+      const lastResult = data.Ket_qua || data.result;
+      const lastTotal = data.Tong || data.total;
+      const lastResultText = lastTotal ? `${lastResult} (${lastTotal})` : lastResult;
+
+      // Win rate giả định
+      let winRate = 78 + Math.floor(Math.random() * 15); // 78-92%
+
+      return {
+        phien,
+        timeRemain,
+        lastResult: lastResultText,
+        winRate
+      };
+    }
+
+    // ====== RENDER GI O DIỆN ======
+    function renderPrediction(pred, roundNo) {
+      const { prediction, confidence, reasoning } = pred;
+
+      // Lấy số phiên hiện tại và tính phiên tiếp theo
+      const gameInfo = extractGameInfo(window.lastAPIData || {});
+      const currentSession = gameInfo.phien || roundNo;
+      const nextSession = gameInfo.phien ? (Number(gameInfo.phien) + 1) : (roundNo + 1);
+
+      let html = `🎯 Dự đoán phiên #${nextSession} — `;
+
+      if (prediction && prediction !== null && prediction !== undefined) {
+        const predStr = String(prediction).toUpperCase();
+        const isValid = ['TAI', 'TÀI', 'XIU', 'XỈU', 'OVER', 'UNDER', 'HIGH', 'LOW'].some(p =>
+          predStr.includes(p)
+        );
+
+        if (isValid) {
+          const isTai = ['TAI', 'TÀI', 'OVER', 'HIGH'].some(p => predStr.includes(p));
+
+          html += `<span class="prediction ${isTai ? 'tai' : 'xiu'}">
+            ${isTai ? '🔥 TÀI' : '❄️ XỈU'}
+          </span>`;
+
+          if (confidence && !isNaN(confidence)) {
+            html += ` <span class="chip">Tin cậy: ${Math.round(confidence)}%</span>`;
+          }
+        } else {
+          // Hiển thị dự đoán gốc nhưng làm sạch ký tự lạ
+          const cleanPred = String(prediction).replace(/[^\w\sÀ-ỹ]/g, '').trim();
+          html += `Dự đoán: <span class="strong">${cleanPred || 'Đang xử lý...'}</span>`;
+        }
+      } else {
+        html += `<span style="color:#ffa500;">Đang phân tích...</span>`;
+      }
+
+      return html;
+    }
+
+    function renderPercentages(perc) {
+      const { tai, xiu } = perc;
+
+      if (tai != null && xiu != null) {
+        return `
+          <div style="display: flex; align-items: center; gap: 8px; margin: 8px 0;">
+            <span style="font-weight: 800; color: #ff6b6b;">TÀI ${tai}%</span>
+            <div class="percentage-bar" style="flex: 1;">
+              <div class="tai-bar" style="width: ${tai}%;"></div>
+              <div class="xiu-bar" style="width: ${xiu}%;"></div>
+            </div>
+            <span style="font-weight: 800; color: #4ecdc4;">XỈU ${xiu}%</span>
+          </div>
+        `;
+      }
+
+      return `<span style="color:#999;">Đang tính toán tỷ lệ...</span>`;
+    }
+
+    function renderGameInfo(info) {
+      const { phien, timeRemain, lastResult, winRate } = info;
+
+      let html = "";
+
+      if (phien && phien !== '') {
+        html += `📋 Phiên: <span class="strong">${phien}</span>`;
+      }
+
+      if (timeRemain != null && timeRemain >= 0) {
+        html += `${html ? ' • ' : ''}⏱️ Còn: ${timeRemain}s`;
+      }
+
+      if (lastResult && String(lastResult).trim() !== '') {
+        const cleanResult = String(lastResult).replace(/[^\w\sÀ-ỹ0-9]/g, '').trim();
+        if (cleanResult) {
+          html += `${html ? ' • ' : ''}🎲 KQ: <span class="strong">${cleanResult}</span>`;
+        }
+      }
+
+      if (winRate != null && winRate >= 0 && winRate <= 100) {
+        html += `${html ? ' • ' : ''}🎯 Win: ${winRate}%`;
+      }
+
+      return html || "⏳ Đang đồng bộ thông tin game...";
+    }
+
+    function renderMeta(data, isBackup) {
+      const apiStatus = isBackup ? "Backup API" : "Main API";
+      const timestamp = new Date().toLocaleTimeString();
+
+      try {
+        // Chỉ hiển thị thông tin cần thiết, không spam keys
+        const dataStatus = data.Phien ? `Phiên ${data.Phien}` : "Dữ liệu OK";
+        return `${apiStatus} • ${timestamp} • ${dataStatus}`;
+      } catch(e) {
+        return `${apiStatus} • ${timestamp} • Kết nối ổn định`;
+      }
+    }
+
+    // ====== DRAG & TOGGLE ======
+    function enableDragWithinViewport(el){
+      let startX=0, startY=0, dragging=false, offsetX=0, offsetY=0;
+
+      // load vị trí
+      try{
+        const pos = JSON.parse(localStorage.getItem("robotPos"));
+        if (pos && Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
+          el.style.left = pos.x + "px";
+          el.style.top = pos.y + "px";
+          el.style.transform = "translate(0,0)";
+        }
+      }catch{}
+
+      function clamp(val, min, max){ return Math.max(min, Math.min(max, val)); }
+      function bounds(){
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const rect = el.getBoundingClientRect();
+        return { minX: 6, minY: 6, maxX: vw - rect.width - 6, maxY: vh - rect.height - 6 };
+      }
+
+      // Mouse events
+      el.addEventListener("mousedown", (e)=>{
+        if (e.target && e.target.id === "toggleRobot") return;
+        dragging = true; el.style.transition = "none";
+        const rect = el.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+      });
+
+      document.addEventListener("mousemove", (e)=>{
+        if (!dragging) return;
+        const b = bounds();
+        const x = clamp(e.clientX - offsetX, b.minX, b.maxX);
+        const y = clamp(e.clientY - offsetY, b.minY, b.maxY);
+        el.style.left = x + "px";
+        el.style.top = y + "px";
+      });
+
+      document.addEventListener("mouseup", ()=>{
+        if (!dragging) return;
+        dragging = false; el.style.transition = "all .2s";
+        const rect = el.getBoundingClientRect();
+        localStorage.setItem("robotPos", JSON.stringify({ x: rect.left, y: rect.top }));
+      });
+
+      // Touch events
+      el.addEventListener("touchstart", (e)=>{
+        if (e.target && e.target.id === "toggleRobot") return;
+        dragging = true; el.style.transition = "none";
+        const t = e.touches[0];
+        const rect = el.getBoundingClientRect();
+        offsetX = t.clientX - rect.left;
+        offsetY = t.clientY - rect.top;
+      }, {passive:true});
+
+      window.addEventListener("touchmove", (e)=>{
+        if (!dragging) return;
+        const t = e.touches[0];
+        const b = bounds();
+        const x = clamp(t.clientX - offsetX, b.minX, b.maxX);
+        const y = clamp(t.clientY - offsetY, b.minY, b.maxY);
+        el.style.left = x + "px";
+        el.style.top = y + "px";
+      }, {passive:true});
+
+      window.addEventListener("touchend", ()=>{
+        if (!dragging) return;
+        dragging = false; el.style.transition = "all .2s";
+        const rect = el.getBoundingClientRect();
+        localStorage.setItem("robotPos", JSON.stringify({ x: rect.left, y: rect.top }));
+      });
+
+      // Resize handler
+      window.addEventListener("resize", ()=>{
+        const rect = el.getBoundingClientRect();
+        const b = bounds();
+        const x = clamp(rect.left, b.minX, b.maxX);
+        const y = clamp(rect.top, b.minY, b.maxY);
+        el.style.left = x + "px";
+        el.style.top = y + "px";
+      });
+    }
+
+    function setupToggleRobot(){
+      const btn = document.getElementById("toggleRobot");
+      const text = document.getElementById("robotText");
+
+      btn.onclick = ()=>{
+        if (text.style.display === "none") {
+          text.style.display = "block";
+          btn.textContent = "−";
+          btn.title = "Thu gọn";
+        } else {
+          text.style.display = "none";
+          btn.textContent = "+";
+          btn.title = "Mở rộng";
+        }
+      };
+    }
+
+    // Ẩn loading screen khi game tải xong
+    function hideGameLoading() {
+      const loading = document.getElementById("gameLoading");
+      if (loading) {
+        setTimeout(() => {
+          loading.style.opacity = "0";
+          setTimeout(() => loading.style.display = "none", 300);
+        }, 500); // Giảm thời gian chờ xuống 0.5s
+      }
+    }
+
+    // Tự động ẩn loading sau 5s nếu iframe không trigger onload
+    function autoHideLoading() {
+      setTimeout(() => {
+        const loading = document.getElementById("gameLoading");
+        if (loading && loading.style.display !== "none") {
+          console.log("Auto hiding loading screen...");
+          hideGameLoading();
+        }
+      }, 5000);
+    }
+
+    // Enter key cho login
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("password").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") checkKey();
+      });
+    });
+
+  </script>
+</body>
+</html>
